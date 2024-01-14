@@ -15,16 +15,16 @@ class IRCClient:
 
     def connect_to_server(self):
         self.sock.connect((self.server, self.port))
-        
         # Send initial registration command to the server
         self.send_command(f"/NICK {self.nickname}")
+
     def send_command(self, command):
         self.sock.send((command + "\r\n").encode())
 
     def receive_response(self):
         while True:
             response = self.sock.recv(4096).decode()
-            logging.info("Received response : {}".format(response))
+            print(response)
 
 if __name__ == "__main__":
     port = int(sys.argv[1])

@@ -2,6 +2,7 @@ import socket
 import threading
 import logging
 import sys
+from utils import getHelps
 
 class IRCServer:
     def __init__(self, host, port):
@@ -40,13 +41,16 @@ class IRCServer:
                             client_nick = args[0]
                             self.clients.append({'name': client_nick, 'client': client})
                             logging.info(f"User logged {client_nick}")
+
                         case 'list':
                             channel_list = list(map(lambda channel: channel.name, self.channels))
                             if len(channel_list) > 0:
                                 client.send(("\n".join(channel_list)).encode('utf-8'))
                             else:
                                 client.send("no channels available".encode('utf-8'))
-        
+                        case 'help':
+                            client.send(getHelps().encode('utf-8'))
+
                         case _:
                             logging.error(f"Invalid command : {command}")
                         
