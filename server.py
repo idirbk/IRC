@@ -7,8 +7,8 @@ class IRCServer:
     def __init__(self, host, port):
         self.host = host
         self.port = port
-        self.clients = {}
-        self.channels = {}
+        self.clients = []
+        self.channels = []
 
     def start_server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -35,10 +35,22 @@ class IRCServer:
                 if message.startswith('/'):
                     command, *args = message[1:].split()
                     logging.debug(f"command: {command.lower()}")
-                    if command.lower() == 'nick':
-                        client_nick = args[0]
-                        self.clients.append({'name': client_nick, 'client': client})
-                        logging.info(f"User logged {client_nick}")
+                    match command.lower():
+                        case 'nick':
+                            client_nick = args[0]
+                            self.clients.append({'name': client_nick, 'client': client})
+                            logging.info(f"User logged {client_nick}")
+                        case 'list':
+                            channel_list = list(map(lambda channel: channel.name, self.channels))
+                            if len(channel_list) > 0:
+                                client.send(("\n".join(channel_list)).encode('utf-8'))
+                            else:
+                                client.send("no channels available".encode('utf-8'))
+        
+                        case _:
+                            logging.error(f"Invalid command : {command}")
+                        
+                        
 
             except ConnectionResetError:
                 if client_nick:

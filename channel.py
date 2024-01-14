@@ -1,18 +1,18 @@
 from message import Message
 
 class Channel:
-    def __init__(self, channel_name: str):
-        self.channel_name = channel_name
+    def __init__(self, channel_name):
+        self.name = channel_name
         self.users = []
         self.messages = []
 
-    def getChannelUsers(self) -> list(str):
+    def getChannelUsers(self):
         return self.users
 
-    def getChannelMessages(self) -> list(Message):
+    def getChannelMessages(self):
         return self.messages
 
-    def publishMessage(self, message: Message) -> None:
+    def publishMessage(self, message):
         message.id = len(self.messages)
         self.messages.append(message)
 
