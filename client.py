@@ -14,9 +14,7 @@ class IRCClient:
         self.sock.connect((self.server, self.port))
         
         # Send initial registration command to the server
-        self.send_command(f"NICK {self.nickname}")
-        self.send_command(f"USER {self.nickname} 0 * :{self.nickname}")
-
+        self.send_command(f"/NICK {self.nickname}")
     def send_command(self, command):
         self.sock.send((command + "\r\n").encode())
 
@@ -31,6 +29,8 @@ class IRCClient:
 if __name__ == "__main__":
     port = int(sys.argv[1])
     nickname = sys.argv[2]
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
     client = IRCClient(nickname, 'localhost', port)
     client.connect_to_server()
     threading.Thread(target=client.receive_response).start()

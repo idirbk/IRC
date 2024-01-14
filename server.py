@@ -22,10 +22,37 @@ class IRCServer:
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
     def handle_client(self, client):
-        #TO-DO
-        pass
-if __name__ == "__main__":
 
+        client_nick = None
+        client_channel = None
+        
+        while True:
+            try:
+                message = client.recv(1024).decode().strip()
+                if not message:
+                    continue
+                logging.debug(f"Received message {message}")
+                if message.startswith('/'):
+                    command, *args = message[1:].split()
+                    logging.debug(f"command: {command.lower()}")
+                    if command.lower() == 'nick':
+                        client_nick = args[0]
+                        self.clients.append({'name': client_nick, 'client': client})
+                        logging.info(f"User logged {client_nick}")
+
+            except ConnectionResetError:
+                if client_nick:
+                    logging.info(f"{client_nick} has disconnected")
+                    client.close()
+                    for channel in self.channels.values():
+                        if client_nick in channel:
+                            channel.remove(client_nick)
+                    if client_nick in self.clients:
+                        del self.clients[client_nick]
+                break
+if __name__ == "__main__":
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
     port = int(sys.argv[1])
     server = IRCServer('localhost', port)
     server.start_server()
