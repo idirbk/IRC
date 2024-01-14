@@ -1,6 +1,7 @@
 
 class Message:
-    def __init__(self, sender, receiver, payload, receiverIsChannel=False):
+    def __init__(self,id, sender, receiver, payload, receiverIsChannel=False):
+        
         self.sender = sender
         self.receiver = receiver
         self.payload = payload

@@ -3,6 +3,9 @@ import threading
 import logging
 import sys
 
+from channel import Channel
+from message import Message
+
 class IRCClient:
     def __init__(self, nickname, server, port=6667):
         self.nickname = nickname
@@ -21,10 +24,7 @@ class IRCClient:
     def receive_response(self):
         while True:
             response = self.sock.recv(4096).decode()
-            if response == ' ':
-                continue
-            else:
-                print(response)
+            logging.info("Received response : {}".format(response))
 
 if __name__ == "__main__":
     port = int(sys.argv[1])
