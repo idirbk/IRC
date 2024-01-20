@@ -12,3 +12,6 @@ class User:
     
     def isConnected(self):
         return self.connected
+
+    def __eq__(self, other):
+        return self.username == other.username

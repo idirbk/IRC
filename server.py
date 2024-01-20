@@ -3,6 +3,8 @@ import threading
 import logging
 import sys
 from utils import getHelps
+from user import User
+from channel import Channel
 
 class IRCServer:
     def __init__(self, host, port):
@@ -10,6 +12,17 @@ class IRCServer:
         self.port = port
         self.clients = []
         self.channels = []
+
+    def channelExists(self, channel_name):
+        channel = [c for c in self.channels if x.name == channel_name]
+        return len(channel) == 1
+
+    def getChannel(self, channel_name):
+        channel = [c for c in self.channels if x.name == channel_name]
+        if len(channel) > 0:
+            return channel[0]
+        else:
+            return None
 
     def start_server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,6 +39,7 @@ class IRCServer:
 
         client_nick = None
         client_channel = None
+        client_user = None
         
         while True:
             try:
@@ -41,6 +55,8 @@ class IRCServer:
                             client_nick = args[0]
                             self.clients.append({'name': client_nick, 'client': client})
                             logging.info(f"User logged {client_nick}")
+                            client_user = User(client_nick)
+                            self.clients.append(client_user)
 
                         case 'list':
                             channel_list = list(map(lambda channel: channel.name, self.channels))
@@ -48,8 +64,26 @@ class IRCServer:
                                 client.send(("\n".join(channel_list)).encode('utf-8'))
                             else:
                                 client.send("no channels available".encode('utf-8'))
+
                         case 'help':
                             client.send(getHelps().encode('utf-8'))
+                            
+                        case 'join':
+                            if len(args) == 0:
+                                logging.error('invalid args for join command')
+                            else:
+                                if client_channel:
+                                    clien_channel.disconcteUser(client_user)
+                                new_channel = args[0]
+                                if self.channelExists(new_channel):
+                                    channel = self.getChannel(new_channel)
+                                    client_channel = channel
+                                    channel.addMember(client_user)
+                                    channel.connectUser(client_user)
+                                else:
+                                    client_channel = Channel(new_channel, [client_user])
+                                    self.channels.append(client_channel)
+                                    
 
                         case _:
                             logging.error(f"Invalid command : {command}")
