@@ -2,7 +2,7 @@ import socket
 import threading
 import logging
 import sys
-from utils import getHelps
+from utils import getHelps, flat_map
 from user import User
 from channel import Channel
 
@@ -14,11 +14,11 @@ class IRCServer:
         self.channels = []
 
     def channelExists(self, channel_name):
-        channel = [c for c in self.channels if x.name == channel_name]
+        channel = [c for c in self.channels if c.name == channel_name]
         return len(channel) == 1
 
     def getChannel(self, channel_name):
-        channel = [c for c in self.channels if x.name == channel_name]
+        channel = [c for c in self.channels if c.name == channel_name]
         if len(channel) > 0:
             return channel[0]
         else:
@@ -73,7 +73,7 @@ class IRCServer:
                                 logging.error('invalid args for join command')
                             else:
                                 if client_channel:
-                                    clien_channel.disconcteUser(client_user)
+                                    client_channel.disconnectUser(client_user)
                                 new_channel = args[0]
                                 if self.channelExists(new_channel):
                                     channel = self.getChannel(new_channel)
@@ -83,8 +83,15 @@ class IRCServer:
                                 else:
                                     client_channel = Channel(new_channel, [client_user])
                                     self.channels.append(client_channel)
-                                    
 
+                        case 'names':
+                            canal = None
+                            if len(args) > 0:
+                                channel = self.getChannel(args[0])
+                                client.send(' | '.join(channel.getConnectedUsers()).encode('utf-8'))
+                            else:
+                                all_users = list(set(flat_map(lambda x: x.getConnectedUsers(), self.channels)))
+                                client.send(' | '.join(all_users).encode('utf-8'))
                         case _:
                             logging.error(f"Invalid command : {command}")
                         

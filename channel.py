@@ -6,6 +6,7 @@ class Channel:
         self.users = users
         self.messages = []
         self.users_connected = users
+
     def getChannelUsers(self):
         return self.users
 
@@ -18,21 +19,21 @@ class Channel:
 
     def addMember(self, member) -> None:
         self.users.append(member)
-    
+
     def removeMember(self, member):
         index = self.users.index(user)
         if index != -1:
             self.users.pop(index)
-    
+
     def disconnectUser(self, user):
         index = self.users_connected.index(user)
         if index != -1:
             self.users_connected.pop(index)
-    
+
     def connectUser(self, username):
         for user in self.users:
             if user.username == username:
                 users_connected.append(user)
-    
+
     def getConnectedUsers(self):
-        return filter(lambda user: user.isConnected(), self.users)
+        return map(lambda user: user.username,self.users_connected)
