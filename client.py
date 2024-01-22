@@ -34,7 +34,5 @@ if __name__ == "__main__":
     client = IRCClient(nickname, 'localhost', port)
     client.connect_to_server()
     threading.Thread(target=client.receive_response).start()
-    
-    while True:
-        command = input('')
-        client.send_command(command)
+
+        

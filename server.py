@@ -5,6 +5,7 @@ import sys
 from utils import getHelps, flat_map
 from user import User
 from channel import Channel
+from message import Message
 
 class IRCServer:
     def __init__(self, host, port):
@@ -19,6 +20,12 @@ class IRCServer:
 
     def getChannel(self, channel_name):
         channel = [c for c in self.channels if c.name == channel_name]
+        if len(channel) > 0:
+            return channel[0]
+        else:
+            return None
+    def getUser(self, username):
+        channel = [u for u in self.clients if u.username == username]
         if len(channel) > 0:
             return channel[0]
         else:
@@ -53,11 +60,10 @@ class IRCServer:
                     match command.lower():
                         case 'nick':
                             client_nick = args[0]
-                            self.clients.append({'name': client_nick, 'client': client})
-                            logging.info(f"User logged {client_nick}")
-                            client_user = User(client_nick)
+                            client_user = User(client_nick, tcp_client= client)
                             self.clients.append(client_user)
-
+                            logging.info(f"User logged {client_nick}")
+                            print(self.clients)
                         case 'list':
                             channel_list = list(map(lambda channel: channel.name, self.channels))
                             if len(channel_list) > 0:
@@ -83,7 +89,26 @@ class IRCServer:
                                 else:
                                     client_channel = Channel(new_channel, [client_user])
                                     self.channels.append(client_channel)
+                        case 'msg':
+                            if len(args) < 2:
+                                logging.error('invalid args for msg command')
+                            else:
+                                destination = args[0]
+                                message = Message(sender=client_user.username, payload=' '.join(args[1:]))
+                                if channel_destination := self.getChannel(destination):
+                                    message.receiver = channel_destination
+                                    message.receiverIsChannel = True
+                                    threading.Thread(target=lambda :channel_destination.send(message)).start()
+                                    
+                                    logging.info(f"Message sended to the channel :{destination}")
+                                elif user_dest := self.getUser(destination):
+                                    message.receiver = user_dest.username
+                                    user_dest.send(message)
 
+                                else:
+                                    logging.error('Unknown destination')
+                                    client = self.send('Unknown destination'.encode('utf-8'))
+                                
                         case 'names':
                             canal = None
                             if len(args) > 0:
@@ -101,12 +126,13 @@ class IRCServer:
                 if client_nick:
                     logging.info(f"{client_nick} has disconnected")
                     client.close()
-                    for channel in self.channels.values():
-                        if client_nick in channel:
-                            channel.remove(client_nick)
-                    if client_nick in self.clients:
-                        del self.clients[client_nick]
+                    for channel in self.channels:
+                            channel.removeMember(client_user)
+                    if client_user in self.clients:
+                        index = self.clients.index(client_user)
+                        del self.clients[index]
                 break
+
 if __name__ == "__main__":
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)

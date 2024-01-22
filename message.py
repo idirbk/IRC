@@ -1,7 +1,9 @@
 
 class Message:
-    def __init__(self,id, sender, receiver, payload, receiverIsChannel=False):
-        
+    count = 0
+    def __init__(self, sender, payload, receiver=None, receiverIsChannel=False):
+        self.id = Message.count
+        Message.count += 1
         self.sender = sender
         self.receiver = receiver
         self.payload = payload
