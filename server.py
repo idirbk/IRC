@@ -2,7 +2,7 @@ import socket
 import threading
 import logging
 import sys
-from utils import getHelps, flat_map
+from utils import getHelps, get_all_users
 from user import User
 from channel import Channel
 from message import Message
@@ -13,6 +13,7 @@ class IRCServer:
         self.port = port
         self.clients = []
         self.channels = []
+        self.servers = []
 
     def channelExists(self, channel_name):
         channel = [c for c in self.channels if c.name == channel_name]
@@ -39,6 +40,7 @@ class IRCServer:
 
         while True:
             client, address = self.sock.accept()
+            client.settimeout(0.5)
             logging.info(f"Connection from {address}")
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
@@ -47,9 +49,10 @@ class IRCServer:
         client_nick = None
         client_channel = None
         client_user = None
-        
         while True:
             try:
+                if client_user:
+                    client_user.lock.acquire()
                 message = client.recv(1024).decode().strip()
                 if not message:
                     continue
@@ -64,6 +67,7 @@ class IRCServer:
                             self.clients.append(client_user)
                             logging.info(f"User logged {client_nick}")
                             print(self.clients)
+                            continue
                         case 'list':
                             channel_list = list(map(lambda channel: channel.name, self.channels))
                             if len(channel_list) > 0:
@@ -78,14 +82,14 @@ class IRCServer:
                             if len(args) == 0:
                                 logging.error('invalid args for join command')
                             else:
+                                logging.debug(f'Client {client_user.username} Join channel {args[0]}')
                                 if client_channel:
                                     client_channel.disconnectUser(client_user)
                                 new_channel = args[0]
-                                if self.channelExists(new_channel):
-                                    channel = self.getChannel(new_channel)
-                                    client_channel = channel
-                                    channel.addMember(client_user)
-                                    channel.connectUser(client_user)
+                                if channel := self.channelExists(new_channel):
+                                    client_channel = self.getChannel(new_channel)
+                                    client_channel.addMember(client_user)
+                                    client_channel.connectUser(client_user)
                                 else:
                                     client_channel = Channel(new_channel, [client_user])
                                     self.channels.append(client_channel)
@@ -96,15 +100,12 @@ class IRCServer:
                                 destination = args[0]
                                 message = Message(sender=client_user.username, payload=' '.join(args[1:]))
                                 if channel_destination := self.getChannel(destination):
-                                    message.receiver = channel_destination
-                                    message.receiverIsChannel = True
-                                    threading.Thread(target=lambda :channel_destination.send(message)).start()
-                                    
+                                    message.sender = client_user.username
+                                    channel_destination.send(message)
                                     logging.info(f"Message sended to the channel :{destination}")
                                 elif user_dest := self.getUser(destination):
                                     message.receiver = user_dest.username
                                     user_dest.send(message)
-
                                 else:
                                     logging.error('Unknown destination')
                                     client = self.send('Unknown destination'.encode('utf-8'))
@@ -115,11 +116,11 @@ class IRCServer:
                                 channel = self.getChannel(args[0])
                                 client.send(' | '.join(channel.getConnectedUsers()).encode('utf-8'))
                             else:
-                                all_users = list(set(flat_map(lambda x: x.getConnectedUsers(), self.channels)))
+                                all_users = get_all_users(self.channels)
                                 client.send(' | '.join(all_users).encode('utf-8'))
                         case _:
                             logging.error(f"Invalid command : {command}")
-                        
+                    client_user.lock.release()
                         
 
             except ConnectionResetError:
@@ -132,6 +133,9 @@ class IRCServer:
                         index = self.clients.index(client_user)
                         del self.clients[index]
                 break
+            except TimeoutError:
+                client_user.lock.release()
+                continue
 
 if __name__ == "__main__":
     logging.basicConfig()

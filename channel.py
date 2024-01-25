@@ -32,20 +32,26 @@ class Channel:
                 self.users_connected.pop(index)
 
     def connectUser(self, user_to_connect):
-        for user in self.users:
-            if user.username == user_to_connect.username:
-                self.users_connected.append(user)
+        if not user_to_connect in self.users_connected:
+            self.users_connected.append(user_to_connect)
 
     def getConnectedUsers(self):
         return map(lambda user: user.username,self.users_connected)
-    
+
     def send(self, message):
+        logging.debug(f"Start sending messages into the channel {self.name}")
         for user in self.users_connected:
-            print(user.username)
-            try:
-                user.tcp_client.send((message.sender + '|' + self.name +':' +message.payload).encode('utf-8'))
-                user.messages.append(message)
-                logging.info(f"Message sended to the user :{user.username}")
-            except BrokenPipeError:
-                logging.error('Broken pipe error user is disconnected')
-                user.connected = False
+            if user.username != message.sender:
+                logging.debug(f"Sending message in  channel {self.name} to {user.username}")
+            #logging.info(f" revier : {user.username}, message : {message}")
+                try:
+                    #user.lock.acquire()
+                    user.tcp_client.send((message.sender + '|' + self.name +':' +message.payload).encode('utf-8'))
+                    user.messages.append(message)
+                    logging.info(f"Message sended to the user :{user.username}")
+                    #user.lock.release()
+                except BrokenPipeError:
+                    logging.error('Broken pipe error user is disconnected')
+                    user.connected = False
+        logging.debug(f"End sending messages into the channel {self.name}")
+

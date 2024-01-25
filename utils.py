@@ -11,3 +11,10 @@ def getHelps():
         return helps
 
 flat_map = lambda f, xs: reduce(lambda a, b: a + b, *list(map(f, xs)))
+
+def get_all_users(channels):
+    res = []
+    for channel in channels:
+        res += channel.getConnectedUsers()
+    return res
+    

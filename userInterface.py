@@ -29,13 +29,13 @@ def recive_message(client, text_area):
         text_area.config(state='normal')
         text_area.insert(tk.END, message + "\n")
         text_area.config(state='disabled')
-        text_area.yview(tk.END)  # Fait défiler la zone de texte pour voir le dernier message
+        text_area.yview(tk.END)
         entry.delete(0, tk.END)
 
 client = setup_client()
 
 root = tk.Tk()
-root.title("Internet Relay Chat")
+root.title(sys.argv[2])
 root.columnconfigure(0, weight=1)
 root.rowconfigure(0, weight=1)
 root.rowconfigure(1, weight=0)

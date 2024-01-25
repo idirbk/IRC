@@ -1,10 +1,11 @@
 import logging
-
+import threading
 class User:
     def __init__(self, username, connected=True, tcp_client=None):
         self.username = username
         self.connected = connected
         self.tcp_client = tcp_client
+        self.lock = threading.Lock()
         self.messages = []
     
     def disconcteUser(self):
