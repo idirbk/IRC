@@ -44,11 +44,34 @@ class IRCServer:
             logging.info(f"Connection from {address}")
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
-    def handle_client(self, client):
+    def handle_connection(self, connection):
+        message = server.recv(1024).decode().strip()
+        if message.startswith('/'):
+            command, *args = message[1:].split()
+            if command == 'nick':
+                if len(args) > 0:
+                    nickname = args[0]
+                    self.handle_server(connection, nickname=nickname)
+            if command == 'server':
+                if len(args) > 0:
+                    port = int(args[0])
+                    self.handle_server(connection, nickname=port)
+            
+    def handle_server(self, server, port):
+        self.servers.append({"port": port, "server": server})
 
-        client_nick = None
+        while True:
+            message = server.recv(1024).decode().strip()
+            logging.debug(f"Server message: {message}")
+            
+        
+    def handle_client(self, client, nickName):
+
+        client_user = User(nickName, tcp_client= client)
+        self.clients.append(client_user)
+        logging.info(f"User logged {nickName}")
+
         client_channel = None
-        client_user = None
         while True:
             try:
                 if client_user:
@@ -61,13 +84,6 @@ class IRCServer:
                     command, *args = message[1:].split()
                     logging.debug(f"command: {command.lower()}")
                     match command.lower():
-                        case 'nick':
-                            client_nick = args[0]
-                            client_user = User(client_nick, tcp_client= client)
-                            self.clients.append(client_user)
-                            logging.info(f"User logged {client_nick}")
-                            print(self.clients)
-                            continue
                         case 'list':
                             channel_list = list(map(lambda channel: channel.name, self.channels))
                             if len(channel_list) > 0:
@@ -124,8 +140,8 @@ class IRCServer:
                         
 
             except ConnectionResetError:
-                if client_nick:
-                    logging.info(f"{client_nick} has disconnected")
+                if nickName:
+                    logging.info(f"{nickName} has disconnected")
                     client.close()
                     for channel in self.channels:
                             channel.removeMember(client_user)
