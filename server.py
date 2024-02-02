@@ -40,36 +40,37 @@ class IRCServer:
 
         while True:
             client, address = self.sock.accept()
-            client.settimeout(0.5)
+            #client.settimeout(0.5)
             logging.info(f"Connection from {address}")
-            threading.Thread(target=self.handle_client, args=(client,)).start()
+            threading.Thread(target=self.handle_connection, args=(client,)).start()
 
     def handle_connection(self, connection):
-        message = server.recv(1024).decode().strip()
+        message = connection.recv(1024).decode().strip()
         if message.startswith('/'):
             command, *args = message[1:].split()
-            if command == 'nick':
+            logging.debug(f"Handling connection {command} {args}")
+            if command.lower() == 'nick':
                 if len(args) > 0:
                     nickname = args[0]
-                    self.handle_server(connection, nickname=nickname)
-            if command == 'server':
+                    self.handle_client(connection, nickname=nickname)
+            if command.lower() == 'server':
                 if len(args) > 0:
                     port = int(args[0])
                     self.handle_server(connection, nickname=port)
-            
+            connection.close()
+
     def handle_server(self, server, port):
         self.servers.append({"port": port, "server": server})
 
         while True:
             message = server.recv(1024).decode().strip()
             logging.debug(f"Server message: {message}")
-            
-        
-    def handle_client(self, client, nickName):
 
-        client_user = User(nickName, tcp_client= client)
+    def handle_client(self, client, nickname):
+
+        client_user = User(nickname, tcp_client= client)
         self.clients.append(client_user)
-        logging.info(f"User logged {nickName}")
+        logging.info(f"User logged {nickname}")
 
         client_channel = None
         while True:
@@ -82,7 +83,6 @@ class IRCServer:
                 logging.debug(f"Received message {message}")
                 if message.startswith('/'):
                     command, *args = message[1:].split()
-                    logging.debug(f"command: {command.lower()}")
                     match command.lower():
                         case 'list':
                             channel_list = list(map(lambda channel: channel.name, self.channels))
@@ -140,8 +140,8 @@ class IRCServer:
                         
 
             except ConnectionResetError:
-                if nickName:
-                    logging.info(f"{nickName} has disconnected")
+                if nickname:
+                    logging.info(f"{nickname} has disconnected")
                     client.close()
                     for channel in self.channels:
                             channel.removeMember(client_user)
