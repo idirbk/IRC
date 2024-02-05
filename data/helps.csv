@@ -1,2 +1,4 @@
 /list,Display the list of channels on IRC.
 /help,Display the list of available commands.
+/join,Join a server on the IRC
+/msg,Send a message to a user or a channel on the IRC
