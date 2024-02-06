@@ -72,7 +72,7 @@ class IRCServer:
     def send_to_all_servers(self, command, server_sender = None):
         for server in self.servers:
             
-            if server_sender and server_sender != server['port']:
+            if not server_sender or server_sender != server['port']:
                 logging.debug(f"sending to server {server['port']}")
                 
                 server['lock'].acquire()
@@ -85,6 +85,28 @@ class IRCServer:
                     return (True, msg[5:])
         return (False, '')
 
+    def get_names(self, channel=None,server_sender = None):
+        command = ''
+
+        if channel:
+            if channel_destination := self.getChannel(channel):
+                return channel.getConnectedUsers()
+            else:
+                command = f'/names {channel}'
+        else:
+            command = '/names'
+
+        for server in self.servers:
+            if server_sender and server_sender != server['port']:
+                logging.debug(f"Getting names from {server['port']}")
+                server['lock'].acquire()
+                server['server'].send('/names')
+                msg = server['server'].recv(1024).decode('utf-8')
+                logging.info(f"names '{msg}'")
+                server['lock'].release()
+                
+        return (False, '')
+    
     def handle_server(self, server, port):
         lock = threading.Lock()
         self.servers.append({"port": port, "server": server, "lock": lock})
