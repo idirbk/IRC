@@ -59,7 +59,11 @@ class IRCServer:
                     port = int(args[0])
                     self.handle_server(connection, port=port)
             connection.close()
-
+    def get_clients(self):
+        users = []
+        for client in self.clients:
+            users.append(client.username)
+        return users
     def connect_to_servers(self, servers_ports):
         for server_port in servers_ports:
             port = int(server_port)
@@ -86,8 +90,9 @@ class IRCServer:
         return (False, '')
 
     def get_names(self, channel=None,server_sender = None):
+        logging.debug(f'Ahya zuba 3 {channel}')
         command = ''
-
+        names = []
         if channel:
             if channel_destination := self.getChannel(channel):
                 return channel.getConnectedUsers()
@@ -95,17 +100,23 @@ class IRCServer:
                 command = f'/names {channel}'
         else:
             command = '/names'
-
+            names += self.get_clients()
+        logging.debug(f'Ahya zuba 4 {names}')
         for server in self.servers:
-            if server_sender and server_sender != server['port']:
+            if not server_sender or server_sender != server['port']:
                 logging.debug(f"Getting names from {server['port']}")
                 server['lock'].acquire()
-                server['server'].send('/names')
+                server['server'].send(command.encode('utf-8'))
                 msg = server['server'].recv(1024).decode('utf-8')
                 logging.info(f"names '{msg}'")
                 server['lock'].release()
-                
-        return (False, '')
+                if msg.startswith('True'):
+                    data= msg[5:].split(',')
+                    names += data
+                    if channel:
+                        return names
+        logging.debug(f'Ahya zuba 5 {names}')
+        return names
     
     def handle_server(self, server, port):
         lock = threading.Lock()
@@ -138,7 +149,13 @@ class IRCServer:
                                 else:
                                     (status, msg)= self.send_to_all_servers(message.payload.encode('utf-8'), port)
                                     server.send(('True|' if status else 'False|').encode('utf-8'))
-                                
+                        case 'names':
+                            channel = None
+                            logging.debug(f'ahya zuba {args}')
+                            if len(args) == 1:
+                                channel = args[0]
+                            names = self.get_names(channel=channel,server_sender=port)
+                            server.send(('True|'+','.join(names) if names else 'False|').encode('utf-8'))
                         case _:
                             logging.error(f"Invalid command : {command}")
                 lock.release()
@@ -211,13 +228,12 @@ class IRCServer:
                                    
                                 
                         case 'names':
-                            canal = None
+                            
+                            channel_names = None
                             if len(args) > 0:
-                                channel = self.getChannel(args[0])
-                                client.send(' | '.join(channel.getConnectedUsers()).encode('utf-8'))
-                            else:
-                                all_users = get_all_users(self.channels)
-                                client.send(' | '.join(all_users).encode('utf-8'))
+                                channel_names= args[0]
+                            names = self.get_names(channel=channel_names)
+                            client.send(' | '.join(names).encode('utf-8'))
                         case _:
                             logging.error(f"Invalid command : {command}")
                     client_user.lock.release()
