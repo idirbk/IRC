@@ -6,6 +6,7 @@ from utils import getHelps, get_all_users
 from user import User
 from channel import Channel
 from message import Message
+import time
 
 class IRCServer:
     def __init__(self, host, port):
@@ -44,20 +45,6 @@ class IRCServer:
             logging.info(f"Connection from {address}")
             threading.Thread(target=self.handle_connection, args=(client,)).start()
 
-    def send_to_all_servers(self, command, server_sender = None):
-        for server in self.servers:
-            
-            if server_sender and server_sender != server['port']:
-                server['lock'].acquire()
-                logging.debug(f"sending to server {server['port']}")
-                server['server'].send(command)
-                msg = server['server'].recv(1024).decode('utf-8')
-                logging.info(f"msg '{msg}'")
-                server['lock'].release()
-                if msg.startswith('True'):
-                    return (True, msg[5:])
-        return (False, '')
-
     def handle_connection(self, connection):
         message = connection.recv(1024).decode().strip()
         if message.startswith('/'):
@@ -82,12 +69,28 @@ class IRCServer:
             sock.settimeout(0.5)
             threading.Thread(target=self.handle_server, args=(sock, port,)).start()
 
+    def send_to_all_servers(self, command, server_sender = None):
+        for server in self.servers:
+            
+            if server_sender and server_sender != server['port']:
+                logging.debug(f"sending to server {server['port']}")
+                
+                server['lock'].acquire()
+                logging.debug(f"sending to server {command} {server['port']}")
+                server['server'].send(command)
+                msg = server['server'].recv(1024).decode('utf-8')
+                logging.info(f"msg '{msg}'")
+                server['lock'].release()
+                if msg.startswith('True'):
+                    return (True, msg[5:])
+        return (False, '')
+
     def handle_server(self, server, port):
         lock = threading.Lock()
-        self.servers.append({"port": port, "server": server, 'lock': lock})
+        self.servers.append({"port": port, "server": server, "lock": lock})
         while True:
             try:
-                #lock.acquire()
+                lock.acquire()
                 message = server.recv(1024).decode().strip()
                 logging.debug(f"Server message: {message}")
                 if not message:
@@ -111,13 +114,16 @@ class IRCServer:
                                     user_dest.send(message)
                                     server.send('True|'.encode('utf-8'))
                                 else:
-                                    (status, msg)= self.send_to_all_servers(message.payload.encode('utf-8'))
+                                    (status, msg)= self.send_to_all_servers(message.payload.encode('utf-8'), port)
                                     server.send(('True|' if status else 'False|').encode('utf-8'))
                                 
                         case _:
                             logging.error(f"Invalid command : {command}")
+                lock.release()
+                time.sleep(0.000001)
             except TimeoutError:
-                #lock.release()
+                lock.release()
+                time.sleep(0.000001)
                 continue
 
     def handle_client(self, client, nickname):

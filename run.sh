@@ -2,13 +2,13 @@
 
 # Start the Python server
 echo "Starting the server..."
-python3 server.py 8284 &
+python3 server.py 7984 &
 SERVER_PID=$!
 sleep 2  # Gives the server time to start up
 
 # Start two instances of the Python client
 echo "Starting the first client..."
-python3 userInterface.py 8284 idir&
+python3 userInterface.py 7984 idir&
 #echo "Starting the second client..."
 #python3 userInterface.py 8380 farid&
 
