@@ -38,20 +38,27 @@ class Channel:
     def getConnectedUsers(self):
         return map(lambda user: user.username,self.users_connected)
 
-    def send(self, message):
+    def send(self, message, send_all_servers = None):
         logging.debug(f"Start sending messages into the channel {self.name}")
         for user in self.users_connected:
             if user.username != message.sender:
-                logging.debug(f"Sending message in  channel {self.name} to {user.username}")
-            #logging.info(f" revier : {user.username}, message : {message}")
-                try:
-                    #user.lock.acquire()
-                    user.tcp_client.send((message.sender + '|' + self.name +':' +message.payload).encode('utf-8'))
-                    user.messages.append(message)
-                    logging.info(f"Message sended to the user :{user.username}")
-                    #user.lock.release()
-                except BrokenPipeError:
-                    logging.error('Broken pipe error user is disconnected')
-                    user.connected = False
+                if user.tcp_client:
+                    logging.debug(f"Sending message in  channel {self.name} to {user.username}")
+                    try:
+                        user.tcp_client.send((message.sender + '|' + self.name +':' +message.payload).encode('utf-8'))
+                        user.messages.append(message)
+                        logging.info(f"Message sended to the user :{user.username}")
+                    except BrokenPipeError:
+                        logging.error('Broken pipe error user is disconnected')
+                        user.connected = False
+                else:
+                    command = f'/msgc {user.username} {message.sender} {self.name} {message.payload}'
+                    (status, msg)= send_all_servers(command.encode('utf-8'))
+                    if not status:
+                        logging.error(f'Error while sendind a message on channle {self.name} to {user.username} in another server')
+                    else:
+                        logging.info(f'Message sended successfully')
+
+                
         logging.debug(f"End sending messages into the channel {self.name}")
 

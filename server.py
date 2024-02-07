@@ -90,7 +90,6 @@ class IRCServer:
         return (False, '')
 
     def get_names(self, channel=None,server_sender = None):
-        logging.debug(f'Ahya zuba 3 {channel}')
         command = ''
         names = []
         if channel:
@@ -101,13 +100,14 @@ class IRCServer:
         else:
             command = '/names'
             names += self.get_clients()
-        logging.debug(f'Ahya zuba 4 {names}')
         for server in self.servers:
             if not server_sender or server_sender != server['port']:
                 logging.debug(f"Getting names from {server['port']}")
                 server['lock'].acquire()
                 server['server'].send(command.encode('utf-8'))
+                server['server'].settimeout(5)
                 msg = server['server'].recv(1024).decode('utf-8')
+                server['server'].settimeout(0.5)
                 logging.info(f"names '{msg}'")
                 server['lock'].release()
                 if msg.startswith('True'):
@@ -131,31 +131,63 @@ class IRCServer:
                 if message.startswith('/'):
                     command, *args = message[1:].split()
                     match command.lower():
+                        case 'msgc':
+                            username = args[0]
+                            sender = args[1]
+                            channelname = args[2]
+                            payload = args[3:]
+                            if user_dest := self.getUser(username):
+                                user_dest.tcp_client.send(f'{channelname}|{sender}: {payload}'.encode('utf-8'))
+                                server.send('True|'.encode('utf-8'))
+                            else:
+                                (status, msg) =self.send_to_all_servers(message.encode('utf-8'))
+                                if status:
+                                    server.send('True|'.encode('utf-8'))
+                                else:
+                                    server.send('False|'.encode('utf-8'))
+                            
                         case 'msg':
                             if len(args) < 2:
                                 logging.error('invalid args for msg command')
                             else:
                                 destination = args[1]
                                 sender = args[0]
-                                message = Message(sender=sender, payload=' '.join(args[2:]))
+                                msg = Message(sender=sender, payload=' '.join(args[2:]))
                                 if channel_destination := self.getChannel(destination):
-                                    channel_destination.send(message)
+                                    channel_destination.send(msg, self.send_to_all_servers)
                                     logging.info(f"Message sended to the channel :{destination}")
                                     server.send('True|'.encode('utf-8'))
                                 elif user_dest := self.getUser(destination):
-                                    message.receiver = user_dest.username
-                                    user_dest.send(message)
+                                    msg.receiver = user_dest.username
+                                    user_dest.send(msg)
                                     server.send('True|'.encode('utf-8'))
                                 else:
-                                    (status, msg)= self.send_to_all_servers(message.payload.encode('utf-8'), port)
+                                    (status, msg)= self.send_to_all_servers(message.encode('utf-8'), port)
                                     server.send(('True|' if status else 'False|').encode('utf-8'))
                         case 'names':
                             channel = None
-                            logging.debug(f'ahya zuba {args}')
                             if len(args) == 1:
                                 channel = args[0]
                             names = self.get_names(channel=channel,server_sender=port)
                             server.send(('True|'+','.join(names) if names else 'False|').encode('utf-8'))
+                        case 'join':
+                            if len(args) != 2:
+                                logging.error('invalid args for join command')
+                            else:
+                                new_channel = args[0]
+                                username = args[1]
+                                if channel := self.getChannel(new_channel):
+                                    user = User(username)
+                                    channel.addMember(user)
+                                    channel.connectUser(user)
+                                    server.send('True|'.encode('utf-8'))
+                                    logging.info(f'Client {username} from another server added to the channel {new_channel}')
+                                else:
+                                    (status, msg) = self.send_to_all_servers(message.encode('utf-8'), port)
+                                    if status:
+                                        server.send('True|'.encode('utf-8'))
+                                    else:
+                                        server.send('False|'.encode('utf-8'))
                         case _:
                             logging.error(f"Invalid command : {command}")
                 lock.release()
@@ -201,13 +233,19 @@ class IRCServer:
                                 if client_channel:
                                     client_channel.disconnectUser(client_user)
                                 new_channel = args[0]
-                                if channel := self.channelExists(new_channel):
-                                    client_channel = self.getChannel(new_channel)
+                                if channel := self.getChannel(new_channel):
+                                    client_channel = channel
                                     client_channel.addMember(client_user)
                                     client_channel.connectUser(client_user)
                                 else:
-                                    client_channel = Channel(new_channel, [client_user])
-                                    self.channels.append(client_channel)
+                                    command = f'/join {new_channel} {client_user.username}'
+                                    (status, msg) = self.send_to_all_servers(command.encode('utf-8'))
+                                    if status:
+                                        logging.info('The channel exist in another server and the user is added to the channel')
+                                    else:
+                                        client_channel = Channel(new_channel, [client_user])
+                                        self.channels.append(client_channel)
+                                        logging.info('The channel was created successfully in the current server and the user was added')
                         case 'msg':
                             if len(args) < 2:
                                 logging.error('invalid args for msg command')
@@ -216,15 +254,13 @@ class IRCServer:
                                 msg = Message(sender=client_user.username, payload=' '.join(args[1:]))
                                 if channel_destination := self.getChannel(destination):
                                     msg.sender = client_user.username
-                                    channel_destination.send(msg)
+                                    channel_destination.send(msg, self.send_to_all_servers)
                                     logging.info(f"msg sended to the channel :{destination}")
                                 elif user_dest := self.getUser(destination):
                                     msg.receiver = user_dest.username
                                     user_dest.send(msg)
                                 else:
-                                    
-                                    (status, msg)= self.send_to_all_servers(('/msg '+client_user.username + ' '+' '.join(args)).encode('utf-8'), self.port)
-                                    client.send(('True|' if status else 'False|').encode('utf-8'))
+                                    threading.Thread(target=self.send_to_all_servers, args=(('/msg '+client_user.username + ' '+' '.join(args)).encode('utf-8'), self.port,)).start()
                                    
                                 
                         case 'names':
