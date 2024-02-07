@@ -52,7 +52,9 @@ class Channel:
                         logging.error('Broken pipe error user is disconnected')
                         user.connected = False
                 else:
+
                     command = f'/msgc {user.username} {message.sender} {self.name} {message.payload}'
+                    logging.info('command azuba  '+command)
                     (status, msg)= send_all_servers(command.encode('utf-8'))
                     if not status:
                         logging.error(f'Error while sendind a message on channle {self.name} to {user.username} in another server')

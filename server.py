@@ -82,8 +82,10 @@ class IRCServer:
                 server['lock'].acquire()
                 logging.debug(f"sending to server {command} {server['port']}")
                 server['server'].send(command)
+                server['server'].settimeout(5)
                 msg = server['server'].recv(1024).decode('utf-8')
                 logging.info(f"msg '{msg}'")
+                server['server'].settimeout(0.5)
                 server['lock'].release()
                 if msg.startswith('True'):
                     return (True, msg[5:])
@@ -94,7 +96,7 @@ class IRCServer:
         names = []
         if channel:
             if channel_destination := self.getChannel(channel):
-                return channel.getConnectedUsers()
+                return channel_destination.getConnectedUsers()
             else:
                 command = f'/names {channel}'
         else:
@@ -115,9 +117,24 @@ class IRCServer:
                     names += data
                     if channel:
                         return names
-        logging.debug(f'Ahya zuba 5 {names}')
         return names
     
+    def get_list(self, server_sender = None):
+        channel_list = list(map(lambda channel: channel.name, self.channels))
+        
+        for server in self.servers:
+            if not server_sender or server_sender != server['port']:
+                logging.debug(f"Getting names from {server['port']}")
+                server['lock'].acquire()
+                server['server'].send('/list'.encode('utf-8'))
+                server['server'].settimeout(5)
+                msg = server['server'].recv(1024).decode('utf-8')
+                server['server'].settimeout(0.5)
+                logging.info(f"names '{msg}'")
+                server['lock'].release()
+                if msg.startswith('True'):
+                    channel_list += msg[5:].split(',')
+        return channel_list
     def handle_server(self, server, port):
         lock = threading.Lock()
         self.servers.append({"port": port, "server": server, "lock": lock})
@@ -131,16 +148,23 @@ class IRCServer:
                 if message.startswith('/'):
                     command, *args = message[1:].split()
                     match command.lower():
+                        case 'list':
+                            channel_list = self.get_list(server_sender=port)
+                            if len(channel_list) > 0:
+                                server.send(("True|"+','.join(channel_list)).encode('utf-8'))
+                            else:
+                                server.send("False|".encode('utf-8'))
+
                         case 'msgc':
                             username = args[0]
                             sender = args[1]
                             channelname = args[2]
-                            payload = args[3:]
+                            payload = ' '.join(args[3:])
                             if user_dest := self.getUser(username):
                                 user_dest.tcp_client.send(f'{channelname}|{sender}: {payload}'.encode('utf-8'))
                                 server.send('True|'.encode('utf-8'))
                             else:
-                                (status, msg) =self.send_to_all_servers(message.encode('utf-8'))
+                                (status, msg) =self.send_to_all_servers(message.encode('utf-8'), port)
                                 if status:
                                     server.send('True|'.encode('utf-8'))
                                 else:
@@ -153,10 +177,14 @@ class IRCServer:
                                 destination = args[1]
                                 sender = args[0]
                                 msg = Message(sender=sender, payload=' '.join(args[2:]))
+                                
                                 if channel_destination := self.getChannel(destination):
+                                    server.send('True|'.encode('utf-8'))
+                                    lock.release()
                                     channel_destination.send(msg, self.send_to_all_servers)
                                     logging.info(f"Message sended to the channel :{destination}")
-                                    server.send('True|'.encode('utf-8'))
+                                    continue
+
                                 elif user_dest := self.getUser(destination):
                                     msg.receiver = user_dest.username
                                     user_dest.send(msg)
@@ -216,7 +244,7 @@ class IRCServer:
                     command, *args = message[1:].split()
                     match command.lower():
                         case 'list':
-                            channel_list = list(map(lambda channel: channel.name, self.channels))
+                            channel_list = self.get_list()
                             if len(channel_list) > 0:
                                 client.send(("\n".join(channel_list)).encode('utf-8'))
                             else:
