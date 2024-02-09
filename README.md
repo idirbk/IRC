@@ -16,7 +16,7 @@ Then, start the server using:
 ./start.sh
 ```
 this command will start the default configuration 
-![default Architecture](./data/images/image1.png)
+![default Architecture](./data/images/image2.png)
 
 if you want to start a custom configuration
 
