@@ -117,6 +117,7 @@ To forward a message, we use a depth-first traversal of the network of the node 
 
 #### Scenario 2: The channel exists in another server
 
+```
  Alice  Server1             Server2                            Server n
     |        |                  |                                 |
     | /join C|        /join C   |             /join C             |
@@ -126,10 +127,11 @@ To forward a message, we use a depth-first traversal of the network of the node 
     |        |                  |                                 | 
             C is               C is                              C is
           not here           not here                            here
-
+```
 
 #### Scenario 3: The channel dosent exist
 
+```
  Alice  Server1             Server2                            Server n
     |        |                  |                                 |
     | /join C|        /join C   |             /join C             |
@@ -145,3 +147,4 @@ To forward a message, we use a depth-first traversal of the network of the node 
     |        |                  |                                 | 
             C is               C is                              C is
           not here           not here                          not here
+```
