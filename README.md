@@ -25,7 +25,7 @@ To run a server
 ```bash
 python3 server.py <server_port> <neighbor_port>
 ```
-note that for the first server you dont neet to specify the neighbor port
+note that for the first server you dont need to specify the neighbor port
 
 To run a client
 
